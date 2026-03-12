@@ -3,6 +3,8 @@ from typing import List
 from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models.document import Document
+from app.models.chat_log import ChatLog
+from app.models.setting import Setting
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.core.config import settings
 from google import genai
@@ -15,35 +17,45 @@ try:
 except Exception:
     client = None
 
+DEFAULT_SYSTEM_PROMPT = "You are a helpful school assistant answering student inquiries. Answer only based on the provided documents."
+DEFAULT_STRICTNESS = 0.2
+
+
+def _get_settings(db: Session):
+    """Return the active settings row or fall back to defaults."""
+    setting = db.query(Setting).first()
+    if setting:
+        return setting.system_prompt, setting.strictness
+    return DEFAULT_SYSTEM_PROMPT, DEFAULT_STRICTNESS
+
+
 @router.post("/query", response_model=ChatResponse)
 async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
+    system_prompt, strictness = _get_settings(db)
+
     if not client:
         # Fallback for testing or missing API key
-        return ChatResponse(answer="This is a grounded answer from the mock.")
-    
-    try:
-        # In a real app, you would retrieve documents matching the query (RAG)
-        # Using Gemini SDK, we can pass multiple file URIs or use Gemini semantic retrieval tools.
-        # For this spec, we just fetch files linked from DB, but usually we would use
-        # Gemini search tools. Here we simulate passing all active files as context.
-        # Note: Gemini natively supports uploading files and then referencing them.
-        
-        active_documents = db.query(Document).filter(Document.status == "PROCESSING").all()
-        # In actual implementation, we'd wait for status FAILED/ACTIVE
-        # or just pass their URIs down to gemini
+        answer = "This is a grounded answer from the mock."
+    else:
+        try:
+            contents = [request.message]
 
-        contents = [request.message]
-        
-        # In a simple implementation, we just call generate_content
-        # Let's mock a simple retrieval + generation
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction="You are a helpful school assistant answering student inquiries. Answer only based on the provided documents.",
-                temperature=0.2,
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=strictness,
+                )
             )
-        )
-        return ChatResponse(answer=response.text)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            answer = response.text
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Log the interaction
+    log_entry = ChatLog(question=request.message, answer=answer)
+    db.add(log_entry)
+    db.commit()
+
+    return ChatResponse(answer=answer)
+
