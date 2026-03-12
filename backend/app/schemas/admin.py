@@ -1,8 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TopicCount(BaseModel):
+    topic: str
+    count: int
+
+
 class StatsResponse(BaseModel):
     total_questions: int
+    top_topics: list[TopicCount]
 
 
 class SettingResponse(BaseModel):
