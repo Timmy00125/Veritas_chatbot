@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from app.api.endpoints import documents, chat
 
-# from .core.db import engine, Base
+from app.core.db import engine, Base
 
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Veritas Chatbot Backend")
 

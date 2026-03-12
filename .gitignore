@@ -9,3 +9,4 @@ node_modules/
 dist/
 coverage/
 postgres_data/
+backend/test.db
