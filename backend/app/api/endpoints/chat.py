@@ -7,6 +7,10 @@ from app.models.chat_log import ChatLog
 from app.models.setting import Setting
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.core.config import settings
+from app.services.gemini_documents import (
+    build_active_document_parts,
+    refresh_document_statuses,
+)
 from google import genai
 from google.genai import types
 
@@ -32,21 +36,25 @@ def _get_settings(db: Session):
 @router.post("/query", response_model=ChatResponse)
 async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
     system_prompt, strictness = _get_settings(db)
+    documents = db.query(Document).all()
+
+    refresh_document_statuses(db, documents, client)
+    active_document_parts = build_active_document_parts(documents)
 
     if not client:
         # Fallback for testing or missing API key
         answer = "This is a grounded answer from the mock."
     else:
         try:
-            contents = [request.message]
+            contents = [*active_document_parts, request.message]
 
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model="gemini-2.5-flash",
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
                     temperature=strictness,
-                )
+                ),
             )
             answer = response.text
         except Exception as e:
@@ -58,4 +66,3 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return ChatResponse(answer=answer)
-

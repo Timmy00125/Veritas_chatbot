@@ -2,9 +2,20 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Trash2, Upload, FileText, Loader2, AlertCircle, CheckCircle2, RefreshCw,
+  Trash2,
+  Upload,
+  FileText,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
-import { getDocuments, uploadDocument, deleteDocument, type Document } from "@/lib/api";
+import {
+  getDocuments,
+  uploadDocument,
+  deleteDocument,
+  type Document,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -13,14 +24,14 @@ type UploadState = "idle" | "uploading" | "success" | "error";
 function StatusBadge({ status }: { status: string }) {
   const colours: Record<string, string> = {
     PROCESSING: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    ACTIVE:     "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    FAILED:     "bg-red-500/10 text-red-400 border-red-500/20",
+    ACTIVE: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    FAILED: "bg-red-500/10 text-red-400 border-red-500/20",
   };
   return (
     <span
       className={cn(
         "px-2.5 py-0.5 rounded-full text-xs font-medium border",
-        colours[status] ?? "bg-slate-700/50 text-slate-400 border-slate-600/30"
+        colours[status] ?? "bg-slate-700/50 text-slate-400 border-slate-600/30",
       )}
     >
       {status}
@@ -49,19 +60,34 @@ export default function DocumentsTable() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     setError(null);
     try {
       setDocuments(await getDocuments());
     } catch {
       setError("Could not load documents. Is the backend running?");
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    const hasProcessingDocuments = documents.some(
+      (doc) => doc.status === "PROCESSING",
+    );
+    if (!hasProcessingDocuments) return;
+
+    const intervalId = window.setInterval(() => {
+      void load(true);
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [documents, load]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -95,29 +121,31 @@ export default function DocumentsTable() {
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("en-GB", {
-      day: "2-digit", month: "short", year: "numeric",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
 
   const uploadIcon = {
-    idle:      <Upload size={15} />,
+    idle: <Upload size={15} />,
     uploading: <Loader2 size={15} className="animate-spin" />,
-    success:   <CheckCircle2 size={15} />,
-    error:     <AlertCircle size={15} />,
+    success: <CheckCircle2 size={15} />,
+    error: <AlertCircle size={15} />,
   }[uploadState];
 
   const uploadLabel = {
-    idle:      "Upload File",
+    idle: "Upload File",
     uploading: "Uploading…",
-    success:   "Uploaded!",
-    error:     "Failed",
+    success: "Uploaded!",
+    error: "Failed",
   }[uploadState];
 
   const uploadClasses = cn(
     "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
     uploadState === "success" && "bg-emerald-600 text-white",
-    uploadState === "error"   && "bg-red-600 text-white",
+    uploadState === "error" && "bg-red-600 text-white",
     (uploadState === "idle" || uploadState === "uploading") &&
-      "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+      "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60 disabled:cursor-not-allowed",
   );
 
   return (
@@ -133,7 +161,9 @@ export default function DocumentsTable() {
         <div className="flex items-center gap-3">
           <button
             id="refresh-documents-btn"
-            onClick={load}
+            onClick={() => {
+              void load();
+            }}
             disabled={loading}
             className="p-2 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors disabled:opacity-40"
             aria-label="Refresh documents"
@@ -220,10 +250,13 @@ export default function DocumentsTable() {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
                           <FileText size={14} className="text-blue-400" />
                         </div>
-                        <span className="text-slate-200 font-medium truncate max-w-[240px]" title={doc.filename}>
+                        <span
+                          className="text-slate-200 font-medium truncate max-w-60"
+                          title={doc.filename}
+                        >
                           {doc.filename}
                         </span>
                       </div>
