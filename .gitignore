@@ -10,3 +10,4 @@ dist/
 coverage/
 postgres_data/
 backend/test.db
+backend/.env.prod
