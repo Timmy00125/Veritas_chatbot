@@ -46,7 +46,9 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/chat/query", {
+      const API_BASE =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE}/chat/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -59,7 +61,7 @@ export default function Chat() {
       }
 
       const data = await response.json();
-      
+
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -72,7 +74,8 @@ export default function Chat() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I am having trouble connecting to the server. Please try again later.",
+        content:
+          "Sorry, I am having trouble connecting to the server. Please try again later.",
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -92,13 +95,13 @@ export default function Chat() {
               transition={{ duration: 0.3, ease: "easeOut" }}
               className={cn(
                 "flex w-full",
-                message.role === "user" ? "justify-end" : "justify-start"
+                message.role === "user" ? "justify-end" : "justify-start",
               )}
             >
               <div
                 className={cn(
                   "flex gap-3 max-w-[85%] md:max-w-[75%]",
-                  message.role === "user" ? "flex-row-reverse" : "flex-row"
+                  message.role === "user" ? "flex-row-reverse" : "flex-row",
                 )}
               >
                 <div
@@ -106,26 +109,32 @@ export default function Chat() {
                     "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1",
                     message.role === "user"
                       ? "bg-blue-600 text-white shadow-md"
-                      : "bg-emerald-500 text-white shadow-md ring-2 ring-emerald-500/20"
+                      : "bg-emerald-500 text-white shadow-md ring-2 ring-emerald-500/20",
                   )}
                 >
-                  {message.role === "user" ? <User size={16} /> : <Bot size={16} />}
+                  {message.role === "user" ? (
+                    <User size={16} />
+                  ) : (
+                    <Bot size={16} />
+                  )}
                 </div>
-                
+
                 <div
                   className={cn(
                     "px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm",
                     message.role === "user"
                       ? "bg-blue-600 text-white rounded-tr-sm"
-                      : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm"
+                      : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm",
                   )}
                 >
-                  <p className="whitespace-pre-wrap format-text">{message.content}</p>
+                  <p className="whitespace-pre-wrap format-text">
+                    {message.content}
+                  </p>
                 </div>
               </div>
             </motion.div>
           ))}
-          
+
           {isLoading && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -138,7 +147,9 @@ export default function Chat() {
                 </div>
                 <div className="px-5 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm rounded-tl-sm flex items-center">
                   <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-                  <span className="ml-3 text-sm text-slate-500 dark:text-slate-400 font-medium">Veritas is typing...</span>
+                  <span className="ml-3 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                    Veritas is typing...
+                  </span>
                 </div>
               </div>
             </motion.div>
@@ -167,7 +178,10 @@ export default function Chat() {
           >
             <Send size={18} className={cn(isLoading && "opacity-0")} />
             {isLoading && (
-              <Loader2 size={18} className="absolute inset-0 m-auto animate-spin" />
+              <Loader2
+                size={18}
+                className="absolute inset-0 m-auto animate-spin"
+              />
             )}
             <span className="sr-only">Send message</span>
           </button>

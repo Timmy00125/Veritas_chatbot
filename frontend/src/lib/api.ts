@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,7 +70,9 @@ export async function getSettings(): Promise<Settings> {
   return res.json();
 }
 
-export async function updateSettings(payload: SettingsUpdate): Promise<Settings> {
+export async function updateSettings(
+  payload: SettingsUpdate,
+): Promise<Settings> {
   const res = await fetch(`${API_BASE}/admin/settings`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
