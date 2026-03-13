@@ -6,6 +6,7 @@ from app.models.document import Document
 from app.schemas.document import DocumentResponse
 from app.core.config import settings
 from app.services.gemini_documents import (
+    is_dns_resolution_error,
     normalize_file_status,
     refresh_document_statuses,
 )
@@ -69,6 +70,14 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
 
     except Exception as e:
         db.rollback()
+        if is_dns_resolution_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Gemini API hostname could not be resolved from the backend "
+                    "container. Verify Docker DNS and outbound internet access."
+                ),
+            ) from e
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_file_path):

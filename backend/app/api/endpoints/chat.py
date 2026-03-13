@@ -9,6 +9,7 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.core.config import settings
 from app.services.gemini_documents import (
     build_active_document_parts,
+    is_dns_resolution_error,
     refresh_document_statuses,
 )
 from google import genai
@@ -58,6 +59,14 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
             )
             answer = response.text
         except Exception as e:
+            if is_dns_resolution_error(e):
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Gemini API hostname could not be resolved from the backend "
+                        "container. Verify Docker DNS and outbound internet access."
+                    ),
+                ) from e
             raise HTTPException(status_code=500, detail=str(e))
 
     # Log the interaction

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import deque
+import socket
 from typing import Any, Iterable
 
 from google.genai import types
@@ -8,6 +10,38 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 
 _ALLOWED_STATUSES = {"ACTIVE", "PROCESSING", "FAILED"}
+
+
+def is_dns_resolution_error(error: Exception) -> bool:
+    """Return True when an exception chain contains a DNS resolution failure."""
+    queue: deque[BaseException] = deque([error])
+    visited_ids: set[int] = set()
+
+    while queue:
+        current = queue.popleft()
+        current_id = id(current)
+        if current_id in visited_ids:
+            continue
+        visited_ids.add(current_id)
+
+        if isinstance(current, socket.gaierror):
+            return True
+
+        text = str(current).lower()
+        if "temporary failure in name resolution" in text:
+            return True
+        if "name or service not known" in text:
+            return True
+
+        cause = getattr(current, "__cause__", None)
+        context = getattr(current, "__context__", None)
+
+        if isinstance(cause, BaseException):
+            queue.append(cause)
+        if isinstance(context, BaseException):
+            queue.append(context)
+
+    return False
 
 
 def normalize_file_status(raw_status: object) -> str:

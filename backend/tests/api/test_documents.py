@@ -1,4 +1,5 @@
 import pytest
+import socket
 from io import BytesIO
 from unittest.mock import patch, MagicMock
 
@@ -93,3 +94,20 @@ def test_delete_document_not_found(client):
     response = client.delete("/documents/99999")
     assert response.status_code == 404
     assert response.json()["detail"] == "Document not found"
+
+
+@patch("app.api.endpoints.documents.client")
+def test_upload_document_dns_resolution_failure(mock_client, client):
+    """Return 503 when Gemini hostname resolution fails inside container."""
+    mock_files = MagicMock()
+    mock_files.upload.side_effect = socket.gaierror(
+        -3,
+        "Temporary failure in name resolution",
+    )
+    mock_client.files = mock_files
+
+    files = {"file": ("dns-test.txt", BytesIO(b"dns test"), "text/plain")}
+    response = client.post("/documents/upload", files=files)
+
+    assert response.status_code == 503
+    assert "could not be resolved" in response.json()["detail"]
