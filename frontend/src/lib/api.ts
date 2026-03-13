@@ -1,5 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Document {
