@@ -40,14 +40,16 @@ describe("StatsCards", () => {
     render(<StatsCards />);
     await waitFor(() =>
       expect(
-        screen.getByText(/Could not load statistics/i)
-      ).toBeInTheDocument()
+        screen.getByText(/Could not load statistics/i),
+      ).toBeInTheDocument(),
     );
   });
 
   it("calls the correct stats endpoint", async () => {
     render(<StatsCards />);
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
-    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8000/admin/stats");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/admin/stats"),
+    );
   });
 });

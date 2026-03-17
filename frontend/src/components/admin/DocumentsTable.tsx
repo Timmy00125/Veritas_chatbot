@@ -149,16 +149,16 @@ export default function DocumentsTable() {
   );
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Document Management</h1>
           <p className="text-slate-400 mt-1 text-sm">
             Upload and manage files ingested into the RAG pipeline.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             id="refresh-documents-btn"
             onClick={() => {
@@ -198,7 +198,7 @@ export default function DocumentsTable() {
       )}
 
       {/* Table */}
-      <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-900/60 backdrop-blur-sm shadow-xl">
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl backdrop-blur-sm md:block">
         <table className="w-full text-sm" id="documents-table">
           <thead>
             <tr className="bg-slate-800/60 text-slate-400 text-left uppercase text-xs tracking-wider">
@@ -290,6 +290,75 @@ export default function DocumentsTable() {
             </AnimatePresence>
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-3 md:hidden">
+        {loading &&
+          [1, 2].map((i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
+            >
+              <div className="h-4 w-2/3 animate-pulse rounded bg-slate-800" />
+              <div className="mt-3 h-3 w-1/3 animate-pulse rounded bg-slate-800" />
+              <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-slate-800" />
+            </div>
+          ))}
+
+        {!loading && error && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-5 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && documents.length === 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-8 text-center text-slate-400">
+            No documents uploaded yet.
+          </div>
+        )}
+
+        {!loading &&
+          !error &&
+          documents.map((doc) => (
+            <motion.div
+              key={doc.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p
+                    className="truncate text-sm font-medium text-slate-100"
+                    title={doc.filename}
+                  >
+                    {doc.filename}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {doc.mime_type.split("/").pop()?.toUpperCase()} •{" "}
+                    {formatDate(doc.created_at)}
+                  </p>
+                </div>
+                <StatusBadge status={doc.status} />
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  id={`delete-document-${doc.id}-btn-mobile`}
+                  aria-label={`Delete ${doc.filename}`}
+                  onClick={() => handleDelete(doc.id)}
+                  disabled={deletingId === doc.id}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
+                >
+                  {deletingId === doc.id ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={13} />
+                  )}
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          ))}
       </div>
 
       {!loading && documents.length > 0 && (

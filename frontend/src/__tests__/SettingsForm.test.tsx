@@ -32,7 +32,7 @@ describe("SettingsForm", () => {
     await waitFor(() => {
       const textarea = screen.getByRole("textbox");
       expect((textarea as HTMLTextAreaElement).value).toBe(
-        "You are a helpful school assistant."
+        "You are a helpful school assistant.",
       );
     });
   });
@@ -40,7 +40,9 @@ describe("SettingsForm", () => {
   it("calls GET /admin/settings on mount", async () => {
     render(<SettingsForm />);
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
-    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8000/admin/settings");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/admin/settings"),
+    );
   });
 
   it("submits updated settings via PUT on save", async () => {
@@ -57,9 +59,9 @@ describe("SettingsForm", () => {
 
     render(<SettingsForm />);
     await waitFor(() =>
-      expect(
-        (screen.getByRole("textbox") as HTMLTextAreaElement).value
-      ).toBe("You are a helpful school assistant.")
+      expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+        "You are a helpful school assistant.",
+      ),
     );
 
     // Edit the prompt
@@ -73,16 +75,16 @@ describe("SettingsForm", () => {
 
     await waitFor(() =>
       expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:8000/admin/settings",
-        expect.objectContaining({ method: "PUT" })
-      )
+        expect.stringContaining("/admin/settings"),
+        expect.objectContaining({ method: "PUT" }),
+      ),
     );
 
     // Success message
     await waitFor(() =>
       expect(
-        screen.getByText(/Settings saved successfully/i)
-      ).toBeInTheDocument()
+        screen.getByText(/Settings saved successfully/i),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -94,8 +96,8 @@ describe("SettingsForm", () => {
     render(<SettingsForm />);
     await waitFor(() =>
       expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
-        "You are a helpful school assistant."
-      )
+        "You are a helpful school assistant.",
+      ),
     );
 
     fireEvent.change(screen.getByRole("textbox"), {
@@ -106,8 +108,8 @@ describe("SettingsForm", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Failed to update settings/i)
-      ).toBeInTheDocument()
+        screen.getByText(/Failed to update settings/i),
+      ).toBeInTheDocument(),
     );
   });
 });

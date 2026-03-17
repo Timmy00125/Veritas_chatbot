@@ -24,7 +24,14 @@ interface StatCardProps {
   index: number;
 }
 
-function StatCard({ title, value, subtitle, icon, accent, index }: StatCardProps) {
+function StatCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  accent,
+  index,
+}: StatCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -33,15 +40,21 @@ function StatCard({ title, value, subtitle, icon, accent, index }: StatCardProps
       className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 shadow-xl overflow-hidden group hover:border-slate-700 transition-colors duration-200"
     >
       {/* Glow blob */}
-      <div className={`absolute -top-8 -right-8 w-32 h-32 rounded-full blur-3xl opacity-10 ${accent}`} />
+      <div
+        className={`absolute -top-8 -right-8 w-32 h-32 rounded-full blur-3xl opacity-10 ${accent}`}
+      />
 
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent} bg-opacity-10`}>
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent} bg-opacity-10`}
+        >
           {icon}
         </div>
       </div>
 
-      <p className="text-4xl font-black text-white mb-1 tabular-nums">{value}</p>
+      <p className="text-4xl font-black text-white mb-1 tabular-nums">
+        {value}
+      </p>
       <p className="text-sm font-semibold text-slate-300">{title}</p>
       <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
     </motion.div>
@@ -67,23 +80,23 @@ export default function StatsCards() {
 
   const cards = [
     {
-      title:    "Total Questions",
-      value:    stats?.total_questions ?? 0,
+      title: "Total Questions",
+      value: stats?.total_questions ?? 0,
       subtitle: "Questions asked across all sessions",
-      icon:     <MessageSquare size={18} className="text-blue-400" />,
-      accent:   "bg-blue-500",
+      icon: <MessageSquare size={18} className="text-blue-400" />,
+      accent: "bg-blue-500",
     },
     {
-      title:    "Engagement Rate",
-      value:    stats && stats.total_questions > 0 ? "Active" : "No data",
+      title: "Engagement Rate",
+      value: stats && stats.total_questions > 0 ? "Active" : "No data",
       subtitle: "Based on conversation volume",
-      icon:     <TrendingUp size={18} className="text-emerald-400" />,
-      accent:   "bg-emerald-500",
+      icon: <TrendingUp size={18} className="text-emerald-400" />,
+      accent: "bg-emerald-500",
     },
   ];
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Usage Statistics</h1>
@@ -99,11 +112,13 @@ export default function StatsCards() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2].map((i) => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+          {[1, 2].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
           {cards.map((card, i) => (
             <StatCard key={card.title} {...card} index={i} />
           ))}
@@ -112,7 +127,8 @@ export default function StatsCards() {
 
       {!loading && !error && (
         <p className="text-xs text-slate-600 mt-6 flex items-center gap-1">
-          <Loader2 size={11} /> Data is live from the database — refresh the page to update.
+          <Loader2 size={11} /> Data is live from the database — refresh the
+          page to update.
         </p>
       )}
     </div>

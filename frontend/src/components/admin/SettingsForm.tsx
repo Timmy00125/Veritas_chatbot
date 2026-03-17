@@ -43,7 +43,10 @@ export default function SettingsForm() {
     setSaveState("saving");
     setSaveError(null);
     try {
-      const updated = await updateSettings({ system_prompt: systemPrompt, strictness });
+      const updated = await updateSettings({
+        system_prompt: systemPrompt,
+        strictness,
+      });
       setOriginal(updated);
       setSaveState("success");
       setTimeout(() => setSaveState("idle"), 3000);
@@ -62,14 +65,16 @@ export default function SettingsForm() {
   };
 
   const strictnessDescription = (v: number) => {
-    if (v < 0.3) return "The bot will be more creative and exploratory in its answers.";
+    if (v < 0.3)
+      return "The bot will be more creative and exploratory in its answers.";
     if (v < 0.6) return "A balance of accuracy and natural conversation.";
-    if (v < 0.85) return "Answers stay closely grounded in retrieved documents.";
+    if (v < 0.85)
+      return "Answers stay closely grounded in retrieved documents.";
     return "The bot will only respond with information directly found in documents.";
   };
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="max-w-3xl p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Settings</h1>
         <p className="text-slate-400 mt-1 text-sm">
@@ -91,11 +96,15 @@ export default function SettingsForm() {
         <form onSubmit={handleSave} className="space-y-8">
           {/* System Prompt */}
           <div className="space-y-3">
-            <label htmlFor="system-prompt" className="block text-sm font-semibold text-slate-200">
+            <label
+              htmlFor="system-prompt"
+              className="block text-sm font-semibold text-slate-200"
+            >
               System Prompt
             </label>
             <p className="text-xs text-slate-500 -mt-1">
-              This message is prepended to every conversation to guide the chatbot&apos;s behavior.
+              This message is prepended to every conversation to guide the
+              chatbot&apos;s behavior.
             </p>
             <textarea
               id="system-prompt"
@@ -103,15 +112,18 @@ export default function SettingsForm() {
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={8}
               placeholder="e.g. You are a helpful school assistant. Only answer questions about school-related topics…"
-              className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 placeholder-slate-600 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all leading-relaxed"
+              className="w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm leading-relaxed text-slate-100 placeholder-slate-600 transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             />
           </div>
 
           {/* Strictness */}
           <div className="space-y-4 bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <label htmlFor="strictness-slider" className="text-sm font-semibold text-slate-200 block">
+                <label
+                  htmlFor="strictness-slider"
+                  className="text-sm font-semibold text-slate-200 block"
+                >
                   Response Strictness
                 </label>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -124,10 +136,10 @@ export default function SettingsForm() {
                   strictness < 0.3
                     ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
                     : strictness < 0.6
-                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                    : strictness < 0.85
-                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    : "bg-red-500/10 text-red-400 border-red-500/20"
+                      ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                      : strictness < 0.85
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        : "bg-red-500/10 text-red-400 border-red-500/20",
                 )}
               >
                 {strictnessLabel(strictness)}
@@ -147,7 +159,9 @@ export default function SettingsForm() {
 
             <div className="flex justify-between text-xs text-slate-600 select-none">
               <span>0.0 — Creative</span>
-              <span className="font-mono text-slate-400">{strictness.toFixed(2)}</span>
+              <span className="font-mono text-slate-400">
+                {strictness.toFixed(2)}
+              </span>
               <span>1.0 — Very Strict</span>
             </div>
 
@@ -170,19 +184,23 @@ export default function SettingsForm() {
           )}
 
           {/* Submit */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse items-stretch gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end">
             {isDirty && saveState === "idle" && (
-              <p className="text-xs text-slate-500 mr-auto">You have unsaved changes.</p>
+              <p className="mr-auto text-xs text-slate-500">
+                You have unsaved changes.
+              </p>
             )}
             <button
               id="save-settings-btn"
               type="submit"
-              disabled={saveState === "saving" || (!isDirty && saveState !== "error")}
+              disabled={
+                saveState === "saving" || (!isDirty && saveState !== "error")
+              }
               className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
+                "flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200",
                 saveState === "saving"
                   ? "bg-blue-700 text-white opacity-70 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-500 text-white disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-500 text-white disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed",
               )}
             >
               {saveState === "saving" ? (

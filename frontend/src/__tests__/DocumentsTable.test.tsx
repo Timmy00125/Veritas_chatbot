@@ -37,16 +37,20 @@ describe("DocumentsTable", () => {
   it("renders document rows after fetching", async () => {
     render(<DocumentsTable />);
     await waitFor(() =>
-      expect(screen.getByText("school_handbook.pdf")).toBeInTheDocument()
+      expect(screen.getAllByText("school_handbook.pdf").length).toBeGreaterThan(
+        0,
+      ),
     );
-    expect(screen.getByText("ACTIVE")).toBeInTheDocument();
+    expect(screen.getAllByText("ACTIVE").length).toBeGreaterThan(0);
   });
 
   it("shows an empty state when no documents exist", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] });
     render(<DocumentsTable />);
     await waitFor(() =>
-      expect(screen.getByText(/No documents uploaded yet/i)).toBeInTheDocument()
+      expect(
+        screen.getAllByText(/No documents uploaded yet/i).length,
+      ).toBeGreaterThan(0),
     );
   });
 
@@ -55,8 +59,8 @@ describe("DocumentsTable", () => {
     render(<DocumentsTable />);
     await waitFor(() =>
       expect(
-        screen.getByText(/Could not load documents/i)
-      ).toBeInTheDocument()
+        screen.getAllByText(/Could not load documents/i).length,
+      ).toBeGreaterThan(0),
     );
   });
 
@@ -68,19 +72,21 @@ describe("DocumentsTable", () => {
 
     render(<DocumentsTable />);
     await waitFor(() =>
-      expect(screen.getByText("school_handbook.pdf")).toBeInTheDocument()
+      expect(screen.getAllByText("school_handbook.pdf").length).toBeGreaterThan(
+        0,
+      ),
     );
 
-    const deleteBtn = screen.getByRole("button", {
+    const deleteBtn = screen.getAllByRole("button", {
       name: /Delete school_handbook.pdf/i,
-    });
+    })[0];
     fireEvent.click(deleteBtn);
 
     await waitFor(() =>
       expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:8000/documents/1",
-        { method: "DELETE" }
-      )
+        expect.stringContaining("/documents/1"),
+        { method: "DELETE" },
+      ),
     );
   });
 });

@@ -1,6 +1,6 @@
-// const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-const API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
+const FALLBACK_API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? FALLBACK_API_BASE;
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Document {
@@ -26,6 +26,35 @@ export interface Settings {
 export interface SettingsUpdate {
   system_prompt: string;
   strictness: number;
+}
+
+export interface ChatHistoryItem {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatQueryResponse {
+  answer: string;
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export async function queryChat(
+  message: string,
+  history: ChatHistoryItem[] = [],
+): Promise<ChatQueryResponse> {
+  const res = await fetch(`${API_BASE}/chat/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail ?? "Failed to fetch response");
+  }
+
+  return res.json();
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────

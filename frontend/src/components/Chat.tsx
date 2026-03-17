@@ -4,12 +4,20 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { queryChat, type ChatHistoryItem } from "@/lib/api";
 
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
 };
+
+const SUGGESTED_QUESTIONS = [
+  "What are the school admission requirements?",
+  "How can I apply for financial aid or scholarships?",
+  "What documents do I need for enrollment?",
+  "When are the key academic calendar deadlines?",
+];
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([
@@ -31,14 +39,14 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  async function submitMessage(content: string) {
+    if (!content.trim() || isLoading) return;
 
+    const trimmedContent = content.trim();
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: trimmedContent,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -46,21 +54,13 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      const API_BASE = " https://veritas-chatbot-uy2v.onrender.com";
-      // process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const response = await fetch(`${API_BASE}/chat/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: userMessage.content, history: [] }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch response");
-      }
-
-      const data = await response.json();
+      const history: ChatHistoryItem[] = messages
+        .slice(-8)
+        .map(({ role, content: messageContent }) => ({
+          role,
+          content: messageContent,
+        }));
+      const data = await queryChat(userMessage.content, history);
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -81,11 +81,46 @@ export default function Chat() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitMessage(input);
+  };
+
+  const handleSuggestedQuestion = async (question: string) => {
+    await submitMessage(question);
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto w-full bg-slate-50/50 dark:bg-slate-900/50 border-x border-slate-200 dark:border-slate-800 shadow-sm relative">
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-amber-100 bg-gradient-to-b from-white via-amber-50/30 to-cyan-50/30 shadow-2xl shadow-cyan-900/10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/90 to-transparent" />
+
+      <div className="flex-1 overflow-y-auto px-3 pb-4 pt-4 sm:px-5 sm:pt-5">
+        <section className="mb-4 rounded-2xl border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur sm:p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-700">
+            Suggested Questions
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {SUGGESTED_QUESTIONS.map((question, index) => (
+              <motion.button
+                key={question}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.06 }}
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
+                  void handleSuggestedQuestion(question);
+                }}
+                className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {question}
+              </motion.button>
+            ))}
+          </div>
+        </section>
+
         <AnimatePresence initial={false}>
           {messages.map((message) => (
             <motion.div
@@ -94,22 +129,22 @@ export default function Chat() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
               className={cn(
-                "flex w-full",
+                "mb-4 flex w-full",
                 message.role === "user" ? "justify-end" : "justify-start",
               )}
             >
               <div
                 className={cn(
-                  "flex gap-3 max-w-[85%] md:max-w-[75%]",
+                  "flex max-w-[94%] gap-2 sm:max-w-[82%] sm:gap-3",
                   message.role === "user" ? "flex-row-reverse" : "flex-row",
                 )}
               >
                 <div
                   className={cn(
-                    "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1",
+                    "mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
                     message.role === "user"
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-emerald-500 text-white shadow-md ring-2 ring-emerald-500/20",
+                      ? "bg-cyan-600 text-white shadow-md"
+                      : "bg-amber-500 text-white shadow-md ring-2 ring-amber-500/20",
                   )}
                 >
                   {message.role === "user" ? (
@@ -121,10 +156,10 @@ export default function Chat() {
 
                 <div
                   className={cn(
-                    "px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm",
+                    "rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm sm:text-[15px]",
                     message.role === "user"
-                      ? "bg-blue-600 text-white rounded-tr-sm"
-                      : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm",
+                      ? "rounded-tr-sm bg-cyan-600 text-white"
+                      : "rounded-tl-sm border border-amber-100 bg-white text-slate-800",
                   )}
                 >
                   <p className="whitespace-pre-wrap format-text">
@@ -139,15 +174,15 @@ export default function Chat() {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start w-full"
+              className="mb-2 flex w-full justify-start"
             >
-              <div className="flex gap-3 max-w-[85%] md:max-w-[75%]">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 text-white shadow-md ring-2 ring-emerald-500/20 flex items-center justify-center mt-1">
+              <div className="flex max-w-[94%] gap-2 sm:max-w-[82%] sm:gap-3">
+                <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-md ring-2 ring-amber-500/20">
                   <Bot size={16} />
                 </div>
-                <div className="px-5 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm rounded-tl-sm flex items-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-                  <span className="ml-3 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                <div className="flex items-center rounded-2xl rounded-tl-sm border border-amber-100 bg-white px-5 py-4 shadow-sm">
+                  <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+                  <span className="ml-3 text-sm font-medium text-slate-500">
                     Veritas is typing...
                   </span>
                 </div>
@@ -158,10 +193,10 @@ export default function Chat() {
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      <div className="p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800">
+      <div className="border-t border-amber-100 bg-white/90 p-3 backdrop-blur-md sm:p-4">
         <form
           onSubmit={handleSubmit}
-          className="relative flex items-center max-w-4xl mx-auto"
+          className="relative mx-auto flex max-w-4xl items-center"
         >
           <input
             type="text"
@@ -169,12 +204,12 @@ export default function Chat() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask Veritas a question..."
             disabled={isLoading}
-            className="w-full pl-5 pr-14 py-4 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-[15px] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="w-full rounded-full border border-amber-200 bg-amber-50/60 py-3 pl-4 pr-14 text-[15px] text-slate-800 shadow-sm transition-all focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:py-4 sm:pl-5"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 transition-colors"
+            className="absolute right-1.5 rounded-full bg-cyan-600 p-2.5 text-white transition-colors hover:bg-cyan-700 disabled:bg-slate-200 disabled:text-slate-400 sm:right-2"
           >
             <Send size={18} className={cn(isLoading && "opacity-0")} />
             {isLoading && (
@@ -187,7 +222,7 @@ export default function Chat() {
           </button>
         </form>
         <div className="text-center mt-2">
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-slate-400">
             Veritas uses AI and may occasionally generate incorrect information.
           </p>
         </div>
