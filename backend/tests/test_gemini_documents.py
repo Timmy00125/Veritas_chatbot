@@ -1,9 +1,13 @@
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from app.models.document import Document
 from app.services.gemini_documents import (
     build_active_document_parts,
+    extract_file_ids_from_permission_error,
+    is_file_permission_error,
     normalize_file_status,
+    refresh_document_statuses,
 )
 
 
@@ -49,3 +53,47 @@ def test_build_active_document_parts_uses_only_active_documents() -> None:
     assert len(parts) == 1
     assert parts[0].file_data.file_uri == "gs://bucket/handbook.pdf"
     assert parts[0].file_data.mime_type == "application/pdf"
+
+
+def test_is_file_permission_error_detects_gemini_denials() -> None:
+    """Gemini permission errors should be recognized for self-healing updates."""
+    error = Exception(
+        "403 PERMISSION_DENIED. You do not have permission to access the File dbgkvsx0ix19 or it may not exist."
+    )
+    assert is_file_permission_error(error) is True
+
+
+def test_refresh_document_statuses_marks_permission_denied_file_failed() -> None:
+    """Inaccessible files should be marked FAILED and excluded from future prompts."""
+    document = Document(
+        filename="policy.pdf",
+        gemini_file_id="files/dbgkvsx0ix19",
+        gemini_file_uri="gs://bucket/policy.pdf",
+        mime_type="application/pdf",
+        status="ACTIVE",
+    )
+
+    db = MagicMock()
+
+    mock_files = MagicMock()
+    mock_files.get.side_effect = Exception(
+        "403 PERMISSION_DENIED. You do not have permission to access the File dbgkvsx0ix19 or it may not exist."
+    )
+
+    gemini_client = MagicMock()
+    gemini_client.files = mock_files
+
+    refresh_document_statuses(db, [document], gemini_client)
+
+    assert document.status == "FAILED"
+    assert document.gemini_file_uri is None
+    db.commit.assert_called_once()
+
+
+def test_extract_file_ids_from_permission_error_returns_ids() -> None:
+    """File identifiers should be parsed from Gemini permission messages."""
+    error = Exception(
+        "You do not have permission to access the File dbgkvsx0ix19 or it may not exist."
+    )
+
+    assert extract_file_ids_from_permission_error(error) == {"dbgkvsx0ix19"}

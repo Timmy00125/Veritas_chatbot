@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+import re
 import socket
 from typing import Any, Iterable
 
@@ -10,6 +11,13 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 
 _ALLOWED_STATUSES = {"ACTIVE", "PROCESSING", "FAILED"}
+
+_FILE_PERMISSION_ERROR_PATTERNS = (
+    "permission_denied",
+    "do not have permission to access the file",
+    "or it may not exist",
+)
+_FILE_ID_PATTERN = re.compile(r"File\s+([A-Za-z0-9_\-/]+)", re.IGNORECASE)
 
 
 def is_dns_resolution_error(error: Exception) -> bool:
@@ -42,6 +50,61 @@ def is_dns_resolution_error(error: Exception) -> bool:
             queue.append(context)
 
     return False
+
+
+def is_file_permission_error(error: Exception) -> bool:
+    """Return True when an exception chain indicates file access is denied."""
+    queue: deque[BaseException] = deque([error])
+    visited_ids: set[int] = set()
+
+    while queue:
+        current = queue.popleft()
+        current_id = id(current)
+        if current_id in visited_ids:
+            continue
+        visited_ids.add(current_id)
+
+        text = str(current).lower()
+        if any(pattern in text for pattern in _FILE_PERMISSION_ERROR_PATTERNS):
+            return True
+
+        cause = getattr(current, "__cause__", None)
+        context = getattr(current, "__context__", None)
+
+        if isinstance(cause, BaseException):
+            queue.append(cause)
+        if isinstance(context, BaseException):
+            queue.append(context)
+
+    return False
+
+
+def extract_file_ids_from_permission_error(error: Exception) -> set[str]:
+    """Extract Gemini file IDs embedded in permission error messages."""
+    queue: deque[BaseException] = deque([error])
+    visited_ids: set[int] = set()
+    file_ids: set[str] = set()
+
+    while queue:
+        current = queue.popleft()
+        current_id = id(current)
+        if current_id in visited_ids:
+            continue
+        visited_ids.add(current_id)
+
+        matches = _FILE_ID_PATTERN.findall(str(current))
+        for match in matches:
+            file_ids.add(match.strip())
+
+        cause = getattr(current, "__cause__", None)
+        context = getattr(current, "__context__", None)
+
+        if isinstance(cause, BaseException):
+            queue.append(cause)
+        if isinstance(context, BaseException):
+            queue.append(context)
+
+    return file_ids
 
 
 def normalize_file_status(raw_status: object) -> str:
@@ -84,8 +147,12 @@ def refresh_document_statuses(
 
         try:
             remote_file = gemini_client.files.get(name=document.gemini_file_id)
-        except Exception:
-            # Keep existing status when the upstream lookup fails transiently.
+        except Exception as error:
+            # Quarantine documents that are no longer accessible with current API key.
+            if is_file_permission_error(error) and document.status != "FAILED":
+                document.status = "FAILED"
+                document.gemini_file_uri = None
+                has_changes = True
             continue
 
         remote_status = normalize_file_status(getattr(remote_file, "state", None))

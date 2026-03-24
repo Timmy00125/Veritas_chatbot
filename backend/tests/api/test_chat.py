@@ -1,5 +1,6 @@
 import pytest
 import socket
+from io import BytesIO
 from unittest.mock import patch, MagicMock
 
 
@@ -47,3 +48,56 @@ def test_chat_query_dns_resolution_failure(mock_client, client):
 
     assert response.status_code == 503
     assert "could not be resolved" in response.json()["detail"]
+
+
+@patch("app.api.endpoints.chat.client")
+@patch("app.api.endpoints.documents.client")
+def test_chat_query_retries_after_permission_denied(
+    mock_documents_client,
+    mock_chat_client,
+    client,
+):
+    """Chat should quarantine denied document IDs and retry once."""
+    upload_file = MagicMock()
+    upload_file.name = "files/dbgkvsx0ix19"
+    upload_file.uri = "gs://bucket/policy.pdf"
+    upload_file.state = "STATE_ACTIVE"
+
+    upload_files = MagicMock()
+    upload_files.upload.return_value = upload_file
+    mock_documents_client.files = upload_files
+
+    upload_response = client.post(
+        "/documents/upload",
+        files={"file": ("policy.txt", BytesIO(b"policy"), "text/plain")},
+    )
+    assert upload_response.status_code == 200, upload_response.json()
+
+    mock_chat_file = MagicMock()
+    mock_chat_file.state = "STATE_ACTIVE"
+    mock_chat_file.uri = "gs://bucket/policy.pdf"
+
+    mock_chat_files = MagicMock()
+    mock_chat_files.get.return_value = mock_chat_file
+    mock_chat_client.files = mock_chat_files
+
+    mock_response = MagicMock()
+    mock_response.text = "Recovered after quarantining inaccessible document."
+
+    mock_chat_models = MagicMock()
+    mock_chat_models.generate_content.side_effect = [
+        Exception(
+            "403 PERMISSION_DENIED. You do not have permission to access the File dbgkvsx0ix19 or it may not exist."
+        ),
+        mock_response,
+    ]
+    mock_chat_client.models = mock_chat_models
+
+    payload = {"message": "What is the policy?"}
+    response = client.post("/chat/query", json=payload)
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["answer"] == (
+        "Recovered after quarantining inaccessible document."
+    )
+    assert mock_chat_models.generate_content.call_count == 2
