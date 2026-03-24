@@ -92,7 +92,7 @@ def _generate_with_documents(
     contents = [*document_parts, request_message]
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=settings.GEMINI_MODEL,
         contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
