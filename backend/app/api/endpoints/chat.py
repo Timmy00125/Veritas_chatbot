@@ -65,30 +65,62 @@ def _mark_documents_failed_by_file_ids(
     return has_changes
 
 
+def _mark_document_failed(db: Session, document: Document) -> None:
+    """Mark a single document as failed and clear its Gemini URI."""
+    document.status = "FAILED"
+    document.gemini_file_uri = None
+    db.commit()
+
+
+def _get_active_documents(documents: list[Document]) -> list[Document]:
+    """Return currently active documents with URIs for prompt grounding."""
+    return [
+        document
+        for document in documents
+        if document.status == "ACTIVE" and bool(document.gemini_file_uri)
+    ]
+
+
+def _generate_with_documents(
+    request_message: str,
+    system_prompt: str,
+    strictness: float,
+    grounding_documents: list[Document],
+) -> str:
+    """Generate Gemini response using the given grounded document subset."""
+    document_parts = build_active_document_parts(grounding_documents)
+    contents = [*document_parts, request_message]
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=strictness,
+        ),
+    )
+    return response.text
+
+
 @router.post("/query", response_model=ChatResponse)
 async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
     system_prompt, strictness = _get_settings(db)
     documents = db.query(Document).all()
 
     refresh_document_statuses(db, documents, client)
-    active_document_parts = build_active_document_parts(documents)
+    active_documents = _get_active_documents(documents)
 
     if not client:
         # Fallback for testing or missing API key
         answer = "This is a grounded answer from the mock."
     else:
         try:
-            contents = [*active_document_parts, request.message]
-
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=strictness,
-                ),
+            answer = _generate_with_documents(
+                request_message=request.message,
+                system_prompt=system_prompt,
+                strictness=strictness,
+                grounding_documents=active_documents,
             )
-            answer = response.text
         except Exception as e:
             if is_dns_resolution_error(e):
                 raise HTTPException(
@@ -109,18 +141,12 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
 
                 if changed_documents:
                     try:
-                        retry_parts = build_active_document_parts(documents)
-                        retry_contents = [*retry_parts, request.message]
-
-                        retry_response = client.models.generate_content(
-                            model="gemini-2.5-flash",
-                            contents=retry_contents,
-                            config=types.GenerateContentConfig(
-                                system_instruction=system_prompt,
-                                temperature=strictness,
-                            ),
+                        answer = _generate_with_documents(
+                            request_message=request.message,
+                            system_prompt=system_prompt,
+                            strictness=strictness,
+                            grounding_documents=_get_active_documents(documents),
                         )
-                        answer = retry_response.text
                     except Exception as retry_error:
                         if is_dns_resolution_error(retry_error):
                             raise HTTPException(
@@ -132,13 +158,32 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
                             ) from retry_error
                         raise HTTPException(status_code=500, detail=str(retry_error))
                 else:
-                    raise HTTPException(
-                        status_code=503,
-                        detail=(
-                            "One or more document references are inaccessible in Gemini. "
-                            "Re-upload the affected documents and retry."
-                        ),
-                    ) from e
+                    active_docs = _get_active_documents(documents)
+                    for suspected_document in active_docs:
+                        try:
+                            candidate_documents = [
+                                document
+                                for document in active_docs
+                                if document.id != suspected_document.id
+                            ]
+                            answer = _generate_with_documents(
+                                request_message=request.message,
+                                system_prompt=system_prompt,
+                                strictness=strictness,
+                                grounding_documents=candidate_documents,
+                            )
+                            _mark_document_failed(db, suspected_document)
+                            break
+                        except Exception:
+                            continue
+                    else:
+                        raise HTTPException(
+                            status_code=503,
+                            detail=(
+                                "One or more document references are inaccessible in Gemini. "
+                                "Re-upload the affected documents and retry."
+                            ),
+                        ) from e
             else:
                 raise HTTPException(status_code=500, detail=str(e))
 
