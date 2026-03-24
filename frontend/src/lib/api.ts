@@ -1,16 +1,5 @@
-const LOCAL_API_BASE = "http://127.0.0.1:8000";
-const DEPLOYED_API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
-
-function resolveApiBase(): string {
-  const configuredApiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
-  if (configuredApiBase) return configuredApiBase;
-
-  return process.env.NODE_ENV === "development"
-    ? LOCAL_API_BASE
-    : DEPLOYED_API_BASE;
-}
-
-const API_BASE = resolveApiBase();
+const API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
+// const API_BASE = "http://0.0.0.0:8000";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Document {
