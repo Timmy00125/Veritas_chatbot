@@ -1,5 +1,6 @@
 const API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
 // const API_BASE = "http://0.0.0.0:8000";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Document {
@@ -34,6 +35,28 @@ export interface ChatHistoryItem {
 
 export interface ChatQueryResponse {
   answer: string;
+  conversation_id: number;
+}
+
+export interface Conversation {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface ConversationMessage {
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationDetail {
+  id: number;
+  title: string;
+  created_at: string;
+  messages: ConversationMessage[];
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
@@ -41,11 +64,13 @@ export interface ChatQueryResponse {
 export async function queryChat(
   message: string,
   history: ChatHistoryItem[] = [],
+  sessionId?: string,
+  conversationId?: number
 ): Promise<ChatQueryResponse> {
   const res = await fetch(`${API_BASE}/chat/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ message, history, session_id: sessionId, conversation_id: conversationId }),
   });
 
   if (!res.ok) {
@@ -54,6 +79,25 @@ export async function queryChat(
   }
 
   return res.json();
+}
+
+// ─── Conversations ────────────────────────────────────────────────────────────
+
+export async function getConversations(sessionId: string): Promise<Conversation[]> {
+  const res = await fetch(`${API_BASE}/chat/conversations?session_id=${encodeURIComponent(sessionId)}`);
+  if (!res.ok) throw new Error("Failed to fetch conversations");
+  return res.json();
+}
+
+export async function getConversation(id: number): Promise<ConversationDetail> {
+  const res = await fetch(`${API_BASE}/chat/conversations/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch conversation");
+  return res.json();
+}
+
+export async function deleteConversation(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/chat/conversations/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete conversation");
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────

@@ -1,11 +1,14 @@
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.core.db import get_db
 from app.models.document import Document
 from app.models.chat_log import ChatLog
 from app.models.setting import Setting
+from app.models.conversation import Conversation
 from app.schemas.chat import ChatRequest, ChatResponse
+from app.schemas.conversation import ConversationListItem, ConversationDetail, MessageItem
 from app.core.config import settings
 from app.services.gemini_documents import (
     build_active_document_parts,
@@ -29,8 +32,7 @@ DEFAULT_STRICTNESS = 0.2
 
 
 def _get_settings(db: Session):
-    """Return the active settings row or fall back to defaults."""
-    setting = db.query(Setting).first()
+    setting = setting = db.query(Setting).first()
     if setting:
         return setting.system_prompt, setting.strictness
     return DEFAULT_SYSTEM_PROMPT, DEFAULT_STRICTNESS
@@ -41,7 +43,6 @@ def _mark_documents_failed_by_file_ids(
     documents: list[Document],
     denied_file_ids: set[str],
 ) -> bool:
-    """Mark inaccessible Gemini files as FAILED so they are excluded from grounding."""
     if not denied_file_ids:
         return False
 
@@ -66,14 +67,12 @@ def _mark_documents_failed_by_file_ids(
 
 
 def _mark_document_failed(db: Session, document: Document) -> None:
-    """Mark a single document as failed and clear its Gemini URI."""
     document.status = "FAILED"
     document.gemini_file_uri = None
     db.commit()
 
 
 def _get_active_documents(documents: list[Document]) -> list[Document]:
-    """Return currently active documents with URIs for prompt grounding."""
     return [
         document
         for document in documents
@@ -87,7 +86,6 @@ def _generate_with_documents(
     strictness: float,
     grounding_documents: list[Document],
 ) -> str:
-    """Generate Gemini response using the given grounded document subset."""
     document_parts = build_active_document_parts(grounding_documents)
     contents = [*document_parts, request_message]
 
@@ -102,6 +100,32 @@ def _generate_with_documents(
     return response.text
 
 
+def _get_or_create_conversation(
+    db: Session,
+    session_id: str,
+    conversation_id: Optional[int],
+    first_message: str
+) -> tuple[Conversation, bool]:
+    is_new = False
+    if conversation_id:
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if conversation:
+            conversation.updated_at = func.now()
+            db.commit()
+            return conversation, is_new
+    if session_id:
+        conversation = Conversation(
+            session_id=session_id,
+            title=first_message[:100] if len(first_message) > 100 else first_message
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        is_new = True
+        return conversation, is_new
+    return None, is_new
+
+
 @router.post("/query", response_model=ChatResponse)
 async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
     system_prompt, strictness = _get_settings(db)
@@ -111,7 +135,6 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
     active_documents = _get_active_documents(documents)
 
     if not client:
-        # Fallback for testing or missing API key
         answer = "This is a grounded answer from the mock."
     else:
         try:
@@ -187,9 +210,91 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
             else:
                 raise HTTPException(status_code=500, detail=str(e))
 
-    # Log the interaction
-    log_entry = ChatLog(question=request.message, answer=answer)
+    conversation = None
+    if request.session_id or request.conversation_id:
+        conversation, _ = _get_or_create_conversation(
+            db,
+            request.session_id,
+            request.conversation_id,
+            request.message
+        )
+
+    log_entry = ChatLog(
+        question=request.message,
+        answer=answer,
+        conversation_id=conversation.id if conversation else None
+    )
     db.add(log_entry)
     db.commit()
 
-    return ChatResponse(answer=answer)
+    if conversation:
+        conversation.updated_at = func.now()
+        db.commit()
+
+    return ChatResponse(
+        answer=answer,
+        conversation_id=conversation.id if conversation else 0
+    )
+
+
+@router.get("/conversations", response_model=list[ConversationListItem])
+def list_conversations(
+    session_id: str = Query(..., description="Browser session ID"),
+    db: Session = Depends(get_db)
+):
+    conversations = (
+        db.query(
+            Conversation,
+            func.count(ChatLog.id).label("message_count")
+        )
+        .outerjoin(ChatLog, Conversation.id == ChatLog.conversation_id)
+        .filter(Conversation.session_id == session_id)
+        .group_by(Conversation.id)
+        .order_by(Conversation.updated_at.desc())
+        .all()
+    )
+
+    return [
+        ConversationListItem(
+            id=conv.Conversation.id,
+            title=conv.Conversation.title,
+            created_at=conv.Conversation.created_at,
+            updated_at=conv.Conversation.updated_at,
+            message_count=conv.message_count
+        )
+        for conv in conversations
+    ]
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    chat_logs = db.query(ChatLog).filter(ChatLog.conversation_id == conversation_id).order_by(ChatLog.created_at).all()
+
+    messages = []
+    for log in chat_logs:
+        messages.append(MessageItem(role="user", content=log.question, created_at=log.created_at))
+        messages.append(MessageItem(role="assistant", content=log.answer, created_at=log.created_at))
+
+    return ConversationDetail(
+        id=conversation.id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        messages=messages
+    )
+
+
+@router.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    db.query(ChatLog).filter(ChatLog.conversation_id == conversation_id).delete()
+    db.delete(conversation)
+    db.commit()
+
+    return {"message": "Conversation deleted"}

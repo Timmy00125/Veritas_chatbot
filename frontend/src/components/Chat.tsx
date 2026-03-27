@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, History, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { queryChat, type ChatHistoryItem } from "@/lib/api";
+import {
+  queryChat,
+  type ChatHistoryItem,
+  type ConversationDetail,
+} from "@/lib/api";
+import ConversationHistory from "./ConversationHistory";
 
 type Message = {
   id: string;
@@ -29,7 +34,20 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversationId, setConversationId] = useState<number | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const sessionId =
+    typeof window !== "undefined"
+      ? (() => {
+          const stored = localStorage.getItem("veritas_session_id");
+          if (stored) return stored;
+          const newId = crypto.randomUUID();
+          localStorage.setItem("veritas_session_id", newId);
+          return newId;
+        })()
+      : "";
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -38,6 +56,46 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  function handleNewChat() {
+    setMessages([
+      {
+        id: "1",
+        role: "assistant",
+        content: "Hello! I am the Veritas chatbot. How can I help you today?",
+      },
+    ]);
+    setConversationId(undefined);
+  }
+
+  function handleSelectConversation(conversation: ConversationDetail) {
+    const loadedMessages: Message[] = [
+      {
+        id: "1",
+        role: "assistant",
+        content: "Hello! I am the Veritas chatbot. How can I help you today?",
+      },
+    ];
+
+    conversation.messages.forEach((msg, index) => {
+      if (msg.role === "user") {
+        loadedMessages.push({
+          id: `${conversation.id}-${index}-user`,
+          role: "user",
+          content: msg.content,
+        });
+      } else {
+        loadedMessages.push({
+          id: `${conversation.id}-${index}-assistant`,
+          role: "assistant",
+          content: msg.content,
+        });
+      }
+    });
+
+    setMessages(loadedMessages);
+    setConversationId(conversation.id);
+  }
 
   async function submitMessage(content: string) {
     if (!content.trim() || isLoading) return;
@@ -60,7 +118,12 @@ export default function Chat() {
           role,
           content: messageContent,
         }));
-      const data = await queryChat(userMessage.content, history);
+      const data = await queryChat(
+        userMessage.content,
+        history,
+        sessionId,
+        conversationId
+      );
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -69,6 +132,9 @@ export default function Chat() {
       };
 
       setMessages((prev) => [...prev, botMessage]);
+      if (data.conversation_id > 0) {
+        setConversationId(data.conversation_id);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       const errorMessage: Message = {
@@ -95,6 +161,23 @@ export default function Chat() {
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-amber-100 bg-gradient-to-b from-white via-amber-50/30 to-cyan-50/30 shadow-2xl shadow-cyan-900/10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/90 to-transparent" />
+
+      <div className="flex items-center justify-between border-b border-amber-100/50 bg-white/80 px-4 py-3 backdrop-blur-sm">
+        <button
+          onClick={() => setShowHistory(true)}
+          className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
+        >
+          <History size={16} />
+          History
+        </button>
+        <button
+          onClick={handleNewChat}
+          className="flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100"
+        >
+          <Plus size={16} />
+          New Chat
+        </button>
+      </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4 pt-4 sm:px-5 sm:pt-5">
         <section className="mb-4 rounded-2xl border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur sm:p-4">
@@ -130,13 +213,13 @@ export default function Chat() {
               transition={{ duration: 0.3, ease: "easeOut" }}
               className={cn(
                 "mb-4 flex w-full",
-                message.role === "user" ? "justify-end" : "justify-start",
+                message.role === "user" ? "justify-end" : "justify-start"
               )}
             >
               <div
                 className={cn(
                   "flex max-w-[94%] gap-2 sm:max-w-[82%] sm:gap-3",
-                  message.role === "user" ? "flex-row-reverse" : "flex-row",
+                  message.role === "user" ? "flex-row-reverse" : "flex-row"
                 )}
               >
                 <div
@@ -144,7 +227,7 @@ export default function Chat() {
                     "mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
                     message.role === "user"
                       ? "bg-cyan-600 text-white shadow-md"
-                      : "bg-amber-500 text-white shadow-md ring-2 ring-amber-500/20",
+                      : "bg-amber-500 text-white shadow-md ring-2 ring-amber-500/20"
                   )}
                 >
                   {message.role === "user" ? (
@@ -159,7 +242,7 @@ export default function Chat() {
                     "rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm sm:text-[15px]",
                     message.role === "user"
                       ? "rounded-tr-sm bg-cyan-600 text-white"
-                      : "rounded-tl-sm border border-amber-100 bg-white text-slate-800",
+                      : "rounded-tl-sm border border-amber-100 bg-white text-slate-800"
                   )}
                 >
                   <p className="whitespace-pre-wrap format-text">
@@ -221,12 +304,20 @@ export default function Chat() {
             <span className="sr-only">Send message</span>
           </button>
         </form>
-        <div className="text-center mt-2">
+        <div className="mt-2 text-center">
           <p className="text-xs text-slate-400">
             Veritas uses AI and may occasionally generate incorrect information.
           </p>
         </div>
       </div>
+
+      <ConversationHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        sessionId={sessionId}
+        onSelectConversation={handleSelectConversation}
+        onNewChat={handleNewChat}
+      />
     </div>
   );
 }
