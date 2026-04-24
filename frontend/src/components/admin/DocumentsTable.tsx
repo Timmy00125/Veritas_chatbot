@@ -253,12 +253,24 @@ export default function DocumentsTable() {
                         <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
                           <FileText size={14} className="text-blue-400" />
                         </div>
-                        <span
-                          className="text-slate-200 font-medium truncate max-w-60"
-                          title={doc.filename}
-                        >
-                          {doc.filename}
-                        </span>
+                        {doc.supabase_file_url ? (
+                          <a
+                            href={doc.supabase_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300 font-medium truncate max-w-60 hover:underline"
+                            title={`Download ${doc.filename}`}
+                          >
+                            {doc.filename}
+                          </a>
+                        ) : (
+                          <span
+                            className="text-slate-200 font-medium truncate max-w-60"
+                            title={doc.filename}
+                          >
+                            {doc.filename}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-400 font-mono text-xs">

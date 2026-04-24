@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-3-flash-preview"
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

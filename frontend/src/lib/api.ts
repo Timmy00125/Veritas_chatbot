@@ -11,6 +11,7 @@ export interface Document {
   created_at: string;
   gemini_file_id: string;
   gemini_file_uri: string;
+  supabase_file_url?: string;
 }
 
 export interface Stats {
