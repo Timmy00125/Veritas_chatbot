@@ -11,3 +11,5 @@ coverage/
 postgres_data/
 backend/test.db
 backend/.env.prod
+.env.prod
+.vscode/settings.json
