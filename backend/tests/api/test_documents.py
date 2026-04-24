@@ -29,6 +29,7 @@ def test_upload_document(mock_client, client):
     assert data["filename"] == "test.txt"
     assert data["gemini_file_id"] == "mock_gemini_file_id"
     assert data["status"] == "PROCESSING"
+    assert data["supabase_file_path"] is None
 
 
 def test_upload_document_invalid_type(client):
@@ -111,3 +112,85 @@ def test_upload_document_dns_resolution_failure(mock_client, client):
 
     assert response.status_code == 503
     assert "could not be resolved" in response.json()["detail"]
+
+
+@patch("app.api.endpoints.documents.client")
+@patch("app.api.endpoints.documents.supabase")
+def test_upload_document_with_supabase(mock_supabase, mock_client, client):
+    """Test upload persists Supabase path and public URL when storage is available."""
+    mock_file = MagicMock()
+    mock_file.name = "mock_gemini_file_id"
+    mock_file.uri = "mock://gemini_uri"
+
+    mock_files = MagicMock()
+    mock_files.upload.return_value = mock_file
+    mock_client.files = mock_files
+
+    mock_storage = MagicMock()
+    mock_bucket = MagicMock()
+    mock_bucket.upload.return_value = None
+    mock_bucket.get_public_url.return_value = "https://example.supabase.co/storage/v1/object/public/documents/uuid_file.txt"
+    mock_storage.from_.return_value = mock_bucket
+    mock_supabase.storage = mock_storage
+
+    file_content = b"supabase test"
+    files = {"file": ("supabase-test.txt", BytesIO(file_content), "text/plain")}
+    response = client.post("/documents/upload", files=files)
+
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["supabase_file_url"] == "https://example.supabase.co/storage/v1/object/public/documents/uuid_file.txt"
+    assert data["supabase_file_path"] is not None
+
+
+@patch("app.api.endpoints.documents.client")
+@patch("app.api.endpoints.documents.supabase")
+def test_delete_document_with_supabase(mock_supabase, mock_client, client):
+    """Test delete removes file from Supabase using stored path."""
+    mock_file = MagicMock()
+    mock_file.name = "mock_delete_file_id"
+    mock_file.uri = "mock://delete_uri"
+
+    mock_files = MagicMock()
+    mock_files.upload.return_value = mock_file
+    mock_client.files = mock_files
+
+    mock_storage = MagicMock()
+    mock_bucket = MagicMock()
+    mock_bucket.upload.return_value = None
+    mock_bucket.get_public_url.return_value = "https://example.supabase.co/storage/v1/object/public/documents/uuid_delete.txt"
+    mock_storage.from_.return_value = mock_bucket
+    mock_supabase.storage = mock_storage
+
+    files = {"file": ("delete-supabase.txt", BytesIO(b"delete test"), "text/plain")}
+    upload_response = client.post("/documents/upload", files=files)
+    assert upload_response.status_code == 200, upload_response.json()
+    document_id = upload_response.json()["id"]
+    stored_path = upload_response.json()["supabase_file_path"]
+    assert stored_path is not None
+
+    response = client.delete(f"/documents/{document_id}")
+    assert response.status_code == 204
+
+    mock_bucket.remove.assert_called_once_with([stored_path])
+
+
+@patch("app.api.endpoints.documents.client")
+def test_upload_document_sanitizes_filename(mock_client, client):
+    """Test that malicious filenames are sanitized."""
+    mock_file = MagicMock()
+    mock_file.name = "mock_gemini_file_id"
+    mock_file.uri = "mock://gemini_uri"
+
+    mock_files = MagicMock()
+    mock_files.upload.return_value = mock_file
+    mock_client.files = mock_files
+
+    files = {"file": ("../../etc/passwd", BytesIO(b"evil"), "text/plain")}
+    response = client.post("/documents/upload", files=files)
+
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert "passwd" in data["filename"]
+    assert "/" not in data["filename"]
+    assert ".." not in data["filename"]

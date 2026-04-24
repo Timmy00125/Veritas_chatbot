@@ -14,6 +14,7 @@ class Document(Base):
     gemini_file_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     gemini_file_uri: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     supabase_file_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    supabase_file_path: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="PROCESSING") # Set to ACTIVE, FAILED, PROCESSING
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

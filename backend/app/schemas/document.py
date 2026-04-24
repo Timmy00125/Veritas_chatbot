@@ -7,6 +7,7 @@ class DocumentBase(BaseModel):
     gemini_file_id: str
     gemini_file_uri: Optional[str] = None
     supabase_file_url: Optional[str] = None
+    supabase_file_path: Optional[str] = None
     mime_type: str
     status: str
     
