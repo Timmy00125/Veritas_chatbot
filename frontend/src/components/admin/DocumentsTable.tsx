@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Trash2,
   Upload,
@@ -9,6 +9,9 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  Search,
+  Filter,
+  X,
 } from "lucide-react";
 import {
   getDocuments,
@@ -20,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
+type StatusFilter = "ALL" | "ACTIVE" | "PROCESSING" | "FAILED";
 
 function StatusBadge({ status }: { status: string }) {
   const colours: Record<string, string> = {
@@ -59,6 +63,12 @@ export default function DocumentsTable() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter state
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [showFilters, setShowFilters] = useState(false);
 
   const load = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -148,6 +158,46 @@ export default function DocumentsTable() {
       "bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60 disabled:cursor-not-allowed",
   );
 
+  // Get unique file types for filter
+  const fileTypes = useMemo(() => {
+    const types = new Set(documents.map((d) => d.mime_type.split("/").pop()?.toUpperCase() ?? "Unknown"));
+    return ["ALL", ...Array.from(types).sort()];
+  }, [documents]);
+
+  // Filtered documents
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      // Search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        if (!doc.filename.toLowerCase().includes(searchLower)) return false;
+      }
+      // Status filter
+      if (statusFilter !== "ALL" && doc.status !== statusFilter) return false;
+      // Type filter
+      if (typeFilter !== "ALL") {
+        const docType = doc.mime_type.split("/").pop()?.toUpperCase() ?? "Unknown";
+        if (docType !== typeFilter) return false;
+      }
+      return true;
+    });
+  }, [documents, search, statusFilter, typeFilter]);
+
+  const activeFiltersCount = [statusFilter !== "ALL", typeFilter !== "ALL", search !== ""].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("ALL");
+    setTypeFilter("ALL");
+  };
+
+  const statusOptions: { value: StatusFilter; label: string; count: number }[] = [
+    { value: "ALL", label: "All", count: documents.length },
+    { value: "ACTIVE", label: "Active", count: documents.filter((d) => d.status === "ACTIVE").length },
+    { value: "PROCESSING", label: "Processing", count: documents.filter((d) => d.status === "PROCESSING").length },
+    { value: "FAILED", label: "Failed", count: documents.filter((d) => d.status === "FAILED").length },
+  ];
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
@@ -197,6 +247,114 @@ export default function DocumentsTable() {
         </div>
       )}
 
+      {/* Search & Filters */}
+      <div className="mb-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by filename..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-sm text-slate-100 placeholder-slate-600 transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all",
+              showFilters || activeFiltersCount > 0
+                ? "border-blue-500/40 bg-blue-600/20 text-blue-300"
+                : "border-slate-700 text-slate-400 hover:text-white hover:border-slate-500"
+            )}
+          >
+            <Filter size={14} />
+            Filters
+            {activeFiltersCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-500/30 text-xs">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Filter Panel */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-4">
+                {/* Status Filter */}
+                <div>
+                  <label className="text-xs font-medium text-slate-400 mb-2 block">Status</label>
+                  <div className="flex flex-wrap gap-2">
+                    {statusOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setStatusFilter(opt.value)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                          statusFilter === opt.value
+                            ? "border-blue-500/40 bg-blue-600/20 text-blue-300"
+                            : "border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500"
+                        )}
+                      >
+                        {opt.label}
+                        <span className="ml-1.5 text-slate-500">{opt.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Type Filter */}
+                <div>
+                  <label className="text-xs font-medium text-slate-400 mb-2 block">File Type</label>
+                  <div className="flex flex-wrap gap-2">
+                    {fileTypes.map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setTypeFilter(type)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                          typeFilter === type
+                            ? "border-blue-500/40 bg-blue-600/20 text-blue-300"
+                            : "border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500"
+                        )}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+                  >
+                    <X size={12} />
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Results count */}
+      {(search || activeFiltersCount > 0) && !loading && (
+        <p className="text-xs text-slate-500 mb-3">
+          Showing {filteredDocuments.length} of {documents.length} documents
+        </p>
+      )}
+
       {/* Table */}
       <div className="hidden overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl backdrop-blur-sm md:block">
         <table className="w-full text-sm" id="documents-table">
@@ -223,15 +381,21 @@ export default function DocumentsTable() {
               </tr>
             )}
 
-            {!loading && !error && documents.length === 0 && (
+            {!loading && !error && filteredDocuments.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-16 text-center">
                   <div className="flex flex-col items-center gap-3 text-slate-500">
                     <FileText size={32} className="text-slate-700" />
-                    <p>No documents uploaded yet.</p>
-                    <p className="text-xs text-slate-600">
-                      Click &quot;Upload File&quot; to add a PDF, TXT, or DOCX.
-                    </p>
+                    <p>{search || activeFiltersCount > 0 ? "No documents match your filters." : "No documents uploaded yet."}</p>
+                    {search || activeFiltersCount > 0 ? (
+                      <button onClick={clearFilters} className="text-xs text-blue-400 hover:text-blue-300">
+                        Clear filters
+                      </button>
+                    ) : (
+                      <p className="text-xs text-slate-600">
+                        Click &quot;Upload File&quot; to add a PDF, TXT, or DOCX.
+                      </p>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -239,7 +403,7 @@ export default function DocumentsTable() {
 
             <AnimatePresence>
               {!loading &&
-                documents.map((doc) => (
+                filteredDocuments.map((doc) => (
                   <motion.tr
                     key={doc.id}
                     initial={{ opacity: 0 }}
@@ -323,15 +487,15 @@ export default function DocumentsTable() {
           </div>
         )}
 
-        {!loading && !error && documents.length === 0 && (
+        {!loading && !error && filteredDocuments.length === 0 && (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-8 text-center text-slate-400">
-            No documents uploaded yet.
+            {search || activeFiltersCount > 0 ? "No documents match your filters." : "No documents uploaded yet."}
           </div>
         )}
 
         {!loading &&
           !error &&
-          documents.map((doc) => (
+          filteredDocuments.map((doc) => (
             <motion.div
               key={doc.id}
               initial={{ opacity: 0, y: 6 }}
@@ -375,7 +539,9 @@ export default function DocumentsTable() {
 
       {!loading && documents.length > 0 && (
         <p className="text-xs text-slate-600 mt-3 text-right">
-          {documents.length} document{documents.length !== 1 ? "s" : ""} total
+          {filteredDocuments.length === documents.length
+            ? `${documents.length} document${documents.length !== 1 ? "s" : ""} total`
+            : `${filteredDocuments.length} of ${documents.length} documents`}
         </p>
       )}
     </div>

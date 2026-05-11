@@ -15,8 +15,25 @@ export interface Document {
   supabase_file_path?: string;
 }
 
+export interface TopicCount {
+  topic: string;
+  count: number;
+}
+
+export interface DayCount {
+  date: string;
+  count: number;
+}
+
 export interface Stats {
   total_questions: number;
+  top_topics: TopicCount[];
+  total_conversations: number;
+  total_documents: number;
+  active_documents: number;
+  failed_documents: number;
+  questions_per_day: DayCount[];
+  avg_messages_per_conversation: number;
 }
 
 export interface Settings {
@@ -46,6 +63,16 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   message_count: number;
+}
+
+export interface AdminConversation {
+  id: number;
+  session_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_question: string | null;
 }
 
 export interface ConversationMessage {
@@ -129,11 +156,27 @@ export async function deleteDocument(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete document");
 }
 
-// ─── Stats ────────────────────────────────────────────────────────────────────
+// ─── Admin Stats ──────────────────────────────────────────────────────────────
 
 export async function getStats(): Promise<Stats> {
   const res = await fetch(`${API_BASE}/admin/stats`);
   if (!res.ok) throw new Error("Failed to fetch stats");
+  return res.json();
+}
+
+// ─── Admin Conversations ──────────────────────────────────────────────────────
+
+export async function getAdminConversations(
+  search?: string,
+  limit = 50,
+  offset = 0
+): Promise<AdminConversation[]> {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  params.set("limit", String(limit));
+  params.set("offset", String(offset));
+  const res = await fetch(`${API_BASE}/admin/conversations?${params}`);
+  if (!res.ok) throw new Error("Failed to fetch conversations");
   return res.json();
 }
 
@@ -155,4 +198,10 @@ export async function updateSettings(
   });
   if (!res.ok) throw new Error("Failed to update settings");
   return res.json();
+}
+
+// ─── Admin Exports ────────────────────────────────────────────────────────────
+
+export function getExportUrl(type: "conversations" | "documents" | "chat-logs"): string {
+  return `${API_BASE}/admin/export/${type}`;
 }
