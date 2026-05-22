@@ -1,5 +1,4 @@
-const API_BASE = "https://veritas-chatbot-uy2v.onrender.com";
-// const API_BASE = "http://0.0.0.0:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://0.0.0.0:8000";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,12 +93,17 @@ export async function queryChat(
   message: string,
   history: ChatHistoryItem[] = [],
   sessionId?: string,
-  conversationId?: number
+  conversationId?: number,
 ): Promise<ChatQueryResponse> {
   const res = await fetch(`${API_BASE}/chat/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, history, session_id: sessionId, conversation_id: conversationId }),
+    body: JSON.stringify({
+      message,
+      history,
+      session_id: sessionId,
+      conversation_id: conversationId,
+    }),
   });
 
   if (!res.ok) {
@@ -112,8 +116,12 @@ export async function queryChat(
 
 // ─── Conversations ────────────────────────────────────────────────────────────
 
-export async function getConversations(sessionId: string): Promise<Conversation[]> {
-  const res = await fetch(`${API_BASE}/chat/conversations?session_id=${encodeURIComponent(sessionId)}`);
+export async function getConversations(
+  sessionId: string,
+): Promise<Conversation[]> {
+  const res = await fetch(
+    `${API_BASE}/chat/conversations?session_id=${encodeURIComponent(sessionId)}`,
+  );
   if (!res.ok) throw new Error("Failed to fetch conversations");
   return res.json();
 }
@@ -125,7 +133,9 @@ export async function getConversation(id: number): Promise<ConversationDetail> {
 }
 
 export async function deleteConversation(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/conversations/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/chat/conversations/${id}`, {
+    method: "DELETE",
+  });
   if (!res.ok) throw new Error("Failed to delete conversation");
 }
 
@@ -169,7 +179,7 @@ export async function getStats(): Promise<Stats> {
 export async function getAdminConversations(
   search?: string,
   limit = 50,
-  offset = 0
+  offset = 0,
 ): Promise<AdminConversation[]> {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
@@ -202,6 +212,8 @@ export async function updateSettings(
 
 // ─── Admin Exports ────────────────────────────────────────────────────────────
 
-export function getExportUrl(type: "conversations" | "documents" | "chat-logs"): string {
+export function getExportUrl(
+  type: "conversations" | "documents" | "chat-logs",
+): string {
   return `${API_BASE}/admin/export/${type}`;
 }
