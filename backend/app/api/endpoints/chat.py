@@ -15,7 +15,6 @@ from app.services.gemini_documents import (
     extract_file_ids_from_permission_error,
     is_dns_resolution_error,
     is_file_permission_error,
-    refresh_document_statuses,
 )
 from google import genai
 from google.genai import types
@@ -131,7 +130,6 @@ async def chat_query(request: ChatRequest, db: Session = Depends(get_db)):
     system_prompt, strictness = _get_settings(db)
     documents = db.query(Document).all()
 
-    refresh_document_statuses(db, documents, client)
     active_documents = _get_active_documents(documents)
 
     if not client:

@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -8,7 +9,6 @@ from app.core.config import settings
 from app.services.gemini_documents import (
     is_dns_resolution_error,
     normalize_file_status,
-    refresh_document_statuses,
 )
 import uuid
 import os
@@ -94,7 +94,8 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         if supabase:
             try:
                 file_path_in_bucket = f"{file_id}_{safe_name}"
-                supabase.storage.from_(settings.SUPABASE_BUCKET).upload(
+                await asyncio.to_thread(
+                    supabase.storage.from_(settings.SUPABASE_BUCKET).upload,
                     file=temp_file_path,
                     path=file_path_in_bucket,
                     file_options={"content-type": file.content_type},
@@ -108,8 +109,10 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
 
         # Upload to Gemini File API
         if client:
-            gemini_file = client.files.upload(
-                file=temp_file_path, config={"display_name": safe_name}
+            gemini_file = await asyncio.to_thread(
+                client.files.upload,
+                file=temp_file_path,
+                config={"display_name": safe_name},
             )
             gemini_file_id = gemini_file.name
             gemini_file_uri = gemini_file.uri
@@ -152,9 +155,7 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
 @router.get("/", response_model=List[DocumentResponse])
 def list_documents(db: Session = Depends(get_db)):
     """Return all uploaded documents."""
-    documents = db.query(Document).order_by(Document.created_at.desc()).all()
-    refresh_document_statuses(db, documents, client)
-    return documents
+    return db.query(Document).order_by(Document.created_at.desc()).all()
 
 
 @router.delete("/{document_id}", status_code=204)

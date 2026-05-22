@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, History, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Markdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import {
   queryChat,
@@ -245,9 +246,13 @@ export default function Chat() {
                       : "rounded-tl-sm border border-amber-100 bg-white text-slate-800"
                   )}
                 >
-                  <p className="whitespace-pre-wrap format-text">
-                    {message.content}
-                  </p>
+                  {message.role === "assistant" ? (
+                    <div className="markdown-content whitespace-pre-wrap">
+                      <Markdown>{message.content}</Markdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
                 </div>
               </div>
             </motion.div>
