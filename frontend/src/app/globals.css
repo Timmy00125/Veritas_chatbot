@@ -154,3 +154,120 @@ body {
   background-color: #f8fafc;
   font-weight: 600;
 }
+
+/* Dark mode markdown for admin chat bubbles */
+.markdown-dark h1,
+.markdown-dark h2,
+.markdown-dark h3 {
+  color: #f1f5f9;
+}
+
+.markdown-dark p {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  color: #e2e8f0;
+}
+
+.markdown-dark p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-dark ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-dark ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-dark li {
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.markdown-dark strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.markdown-dark em {
+  font-style: italic;
+}
+
+.markdown-dark a {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-dark a:hover {
+  color: #7dd3fc;
+}
+
+.markdown-dark code {
+  background-color: #1e293b;
+  color: #a5f3fc;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: var(--font-geist-mono), "Consolas", monospace;
+}
+
+.markdown-dark pre {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border: 1px solid #334155;
+}
+
+.markdown-dark pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.markdown-dark blockquote {
+  border-left: 3px solid #f59e0b;
+  padding-left: 0.75rem;
+  margin-left: 0;
+  margin-bottom: 0.5rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.markdown-dark hr {
+  border: none;
+  border-top: 1px solid #334155;
+  margin: 0.75rem 0;
+}
+
+.markdown-dark table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.markdown-dark th,
+.markdown-dark td {
+  border: 1px solid #334155;
+  padding: 0.375rem 0.625rem;
+  text-align: left;
+  color: #e2e8f0;
+}
+
+.markdown-dark th {
+  background-color: #1e293b;
+  font-weight: 600;
+}

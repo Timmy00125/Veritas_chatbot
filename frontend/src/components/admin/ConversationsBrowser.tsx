@@ -14,6 +14,7 @@ import {
   Bot,
   Clock,
 } from "lucide-react";
+import Markdown from "react-markdown";
 import {
   getAdminConversations,
   getConversation,
@@ -55,7 +56,13 @@ function MessageBubble({ role, content, createdAt }: { role: string; content: st
             : "bg-slate-800 text-slate-200 rounded-bl-md"
         )}
       >
-        <p className="whitespace-pre-wrap break-words">{content}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap break-words">{content}</p>
+        ) : (
+          <div className="markdown-dark">
+            <Markdown>{content}</Markdown>
+          </div>
+        )}
         <p className={cn("text-xs mt-1", isUser ? "text-blue-200/60" : "text-slate-500")}>
           {new Date(createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
         </p>

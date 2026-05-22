@@ -1,9 +1,9 @@
 from fastapi import FastAPI
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.api.endpoints import documents, chat, admin
-
 from app.core.db import engine, Base
-
-Base.metadata.create_all(bind=engine)
+from app import models
 
 app = FastAPI(title="Veritas Chatbot Backend")
 
@@ -20,6 +20,16 @@ app.add_middleware(
 app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+
+
+@app.on_event("startup")
+def create_tables() -> None:
+    try:
+        Base.metadata.create_all(bind=engine)
+    except SQLAlchemyError as exc:
+        raise RuntimeError(
+            "Database initialization failed. Check DATABASE_URL, network access, and database availability."
+        ) from exc
 
 @app.get("/")
 def read_root():

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import re
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -122,12 +122,16 @@ def get_stats(db: Session = Depends(get_db)):
     )
     questions_per_day = [DayCount(date=str(row.day), count=row.count) for row in daily_counts]
 
-    # Average messages per conversation
-    avg_result = (
-        db.query(func.avg(func.count(ChatLog.id)))
+    # Average messages per conversation (use subquery to avoid nesting aggregates)
+    subq = (
+        select(
+            ChatLog.conversation_id,
+            func.count(ChatLog.id).label("msg_count"),
+        )
         .group_by(ChatLog.conversation_id)
-        .scalar()
+        .subquery()
     )
+    avg_result = db.query(func.avg(subq.c.msg_count)).scalar()
     avg_messages = round(float(avg_result or 0), 1)
 
     return StatsResponse(
