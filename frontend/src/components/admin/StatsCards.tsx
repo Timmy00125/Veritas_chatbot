@@ -56,8 +56,8 @@ function StatCard({ title, value, subtitle, icon, accent, index }: StatCardProps
   );
 }
 
-function BarChart({ data, maxBars = 14 }: { data: DayCount[]; maxBars?: number }) {
-  if (data.length === 0) {
+function BarChart({ data = [], maxBars = 14 }: { data?: DayCount[]; maxBars?: number }) {
+  if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-48 text-slate-600 text-sm">
         No activity data yet
@@ -101,8 +101,8 @@ function BarChart({ data, maxBars = 14 }: { data: DayCount[]; maxBars?: number }
   );
 }
 
-function TopicsChart({ topics }: { topics: TopicCount[] }) {
-  if (topics.length === 0) {
+function TopicsChart({ topics = [] }: { topics?: TopicCount[] }) {
+  if (!topics || topics.length === 0) {
     return (
       <div className="flex items-center justify-center h-48 text-slate-600 text-sm">
         No topic data yet

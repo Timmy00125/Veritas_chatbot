@@ -32,7 +32,7 @@ describe("StatsCards", () => {
       json: async () => ({ total_questions: 0 }),
     });
     render(<StatsCards />);
-    await waitFor(() => expect(screen.getByText("0")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("0").length).toBeGreaterThan(0));
   });
 
   it("shows an error state when fetch fails", async () => {
